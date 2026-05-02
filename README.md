@@ -165,3 +165,12 @@ This provides an approximate relationship between gait parameters and link confi
 
 
 ---
+## 👥 Team Members
+- Rutva Mehta - 202401116
+- Yash Ravat - 202401182 
+- Om Pandya - 202401136  
+- Harsh Asnani - 202401062  
+- Het Lathiya - 202401104
+
+---
+
