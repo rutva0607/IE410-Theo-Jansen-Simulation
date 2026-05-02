@@ -174,7 +174,7 @@ This provides an approximate relationship between gait parameters and link confi
 
 ---
 ## 📁 Drive Folder
-This is the Drive Folder where you can see all the codes we used to Demonstrate our Project 
+This Drive folder includes all the source code used in the demonstration of our project.
 Link - https://drive.google.com/drive/folders/1SgetUaWjeaJx1NPeDUs9qbj-JOlweufU
 
 
