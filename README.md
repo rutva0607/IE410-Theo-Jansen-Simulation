@@ -1,115 +1,117 @@
-# IE410-Theo-Jansen-Simulation
-# Theo Jansen Simulatiom
+# Theo Jansen Simulation
 
 This note explains the Python file `theo_jansen.py`.
 It follows the mechanism topology documented in:
 
-- Theo Jansen, *The Great Pretender*, 010 Publishers, 2007.
-- Kemper, T. and Kuipers, A., "Geometric Analysis of the Strandbeest Leg Linkage", *Mechanism and Machine Theory*, 2019.
-- Liu, Z. and Zhang, W., "Trajectory Optimization of Theo Jansen Linkages for Terrain Adaptability", *Robotics and Autonomous Systems*, 2021.
+- Shin, Deshpande, and Sulzer, "Design of a Single Degree-of-Freedom, Adaptable Electromechanical Gait Trainer for People With Neurological Injury", *Journal of Mechanisms and Robotics*, 2018.
+- Jadav et al., "Kinematic Performance of a Customizable Single Degree-of-Freedom Gait Trainer", supplied as `sn-article.pdf`.
 
-The original Theo Jansen sacred ratios (normalized to crank radius = 1) are:
+The experimental link-length table from the later paper is:
 
-| link | a    | b     | c     | d     | e     | f     | g     | h     | i     | j     | k     | l     |
-| ---- | ---: | ----: | ----: | ----: | ----: | ----: | ----: | ----: | ----: | ----: | ----: | ----: |
-| ratio | 1.000 | 2.808 | 2.802 | 2.746 | 2.731 | 1.619 | 1.616 | 1.528 | 1.545 | 2.214 | 2.333 | 2.397 |
+| link       |  L1 |  L2 |  L3 |  L4 |   L5 |   L6 |   L7 |   L8 |  L9 | L10 |  L11 |  L12 |
+| ---------- | --: | --: | --: | --: | ---: | ---: | ---: | ---: | --: | --: | ---: | ---: |
+| nominal cm |  11 |  45 |  36 |  34 | 48.5 | 41.5 | 60.5 | 41.5 |  42 |  43 | 26.5 | 54.5 |
 
-In physical units with crank radius `a = 3.00 cm`, the script produces:
+The script uses the paper's example adjustable values:
 
-`stride length = 11.74 cm`, `step height = 4.22 cm`.
+`L1 = 11.29 cm`, `L4 = 32.93 cm`, `L8 = 41.78 cm`.
 
-These match the analytically expected values from the sacred-ratio derivation to within `0.5 %`.
+With the gait/world frame rotated by `-11.4 deg` relative to the schematic ground-link frame, the script produces:
+
+`x-span = 50.08 cm`, `y-span = 12.74 cm`.
+
+This matches the paper-reported simulated output for the chosen human gait envelope, approximately `[50.10, 12.75] cm`.
 
 ---
 
 ## 1. Coordinate Frames
 
-The mechanism is solved in a local mechanism frame `M`.
+The mechanism is solved first in a mechanism frame `M`.
 
-- `A = [0, 0]^T` is the crank pivot (ground joint).
-- `B = [d, 0]^T` is the second fixed pivot.
-- Link `d` is the fixed ground link.
-- Link `a` is the input crank.
-- The input angle `phi` is swept from `0` to `2*pi`.
+- `P0 = [0, 0]^T` is the crank ground pivot.
+- `P3 = [L4, 0]^T` is the second ground pivot.
+- Link `L4` is the fixed ground link.
+- Link `L1` is the input crank.
+- The input angle `theta1` is swept from `0` to `2*pi`.
 
-A world frame `W` is obtained by rotating all solved positions by:
+The gait/world frame `G` is obtained by rotating all solved points by:
 
-`beta = -13.0 deg`.
+`alpha = -11.4 deg`.
 
-This rotation aligns the computed foot path with the nominal horizontal walking direction and matches the Jansen reference illustrations.
+That rotation does not change the mechanism closure. It only expresses the ankle path in the same horizontal/vertical gait axes used for stride length and step height.
 
 ---
 
 ## 2. Link Direction Convention
 
-Define the unit vector:
+Define:
 
-`u(theta) = [cos(theta), sin(theta)]^T`.
+`e(theta) = [cos(theta), sin(theta)]^T`.
 
-The eight moving bars carry angles `phi, theta_b, ..., theta_l` with these head-to-tail directions:
+The script uses link angles `theta1 ... theta12` with these vector directions:
 
-- `a`: `A -> C` (crank)
-- `b`: `C -> D`
-- `c`: `B -> D`
-- `d`: `A -> B`, fixed, so `theta_d = 0`
-- `e`: `D -> E`
-- `f`: `B -> E`
-- `g`: `C -> F`
-- `h`: `F -> E`
-- `i`: `F -> G` (foot point)
-- `j`: `E -> G`
-- `k`: `C -> H`
-- `l`: `H -> G`
+- `L1`: `P0 -> P1`
+- `L2`: `P1 -> P2`
+- `L3`: `P3 -> P2`
+- `L4`: `P0 -> P3`, fixed, so `theta4 = 0`
+- `L5`: `P2 -> P4`
+- `L6`: `P3 -> P4`
+- `L7`: `P1 -> P5`
+- `L8`: `P3 -> P5`
+- `L9`: `P5 -> P6`
+- `L10`: `P4 -> P6`
+- `L11`: `P5 -> PE`
+- `L12`: `PE -> P6`
 
-The foot / end-effector is the point `G`, shared by links `i`, `j`, and `l`.
+The end-effector / ankle point is `PE`, the joint between `L11` and `L12`.
 
-The unknown angle vector at each crank position is:
+The unknown angle vector at each crank angle is:
 
-`q = [theta_b, theta_c, theta_e, theta_f, theta_g, theta_h, theta_i, theta_j, theta_k, theta_l]^T`.
+`q = [theta2, theta3, theta5, theta6, theta7, theta8, theta9, theta10, theta11, theta12]^T`.
 
-`phi` is prescribed. `theta_d = 0` is fixed.
+`theta1` is prescribed. `theta4` is fixed.
 
 ---
 
 ## 3. Closed Vector Loops
 
-The linkage contains five independent closure constraints. Each gives one x and one y equation, yielding ten scalar equations for ten unknowns.
+The mechanism has five closure equations, each with x and y components, giving 10 scalar equations for 10 unknown angles.
 
-### Crank four-bar: a-b-c-d
+### Upper four-bar: L1-L2-L3-L4
 
-Path: `A -> C -> D -> B -> A`
+Path: `P0 -> P1 -> P2 -> P3 -> P0`
 
-`a*u(phi) + b*u(theta_b) - c*u(theta_c) - d*u(0) = 0`
+`L1*e1 + L2*e2 - L3*e3 - L4*e4 = 0`
 
-### Triangle coupler: c-e-f
+### Lower four-bar: L1-L7-L8-L4
 
-Path: `B -> D -> E -> B`
+Path: `P0 -> P1 -> P5 -> P3 -> P0`
 
-`c*u(theta_c) + e*u(theta_e) - f*u(theta_f) = 0`
+`L1*e1 + L7*e7 - L8*e8 - L4*e4 = 0`
 
-### Upper driver: a-g-h-e
+### Coupler triangle: L3-L5-L6
 
-Path: `A -> C -> F -> E -> D -> B -> A`
+Path: `P3 -> P2 -> P4 -> P3`
 
-This closes the upper secondary bar:
+`L3*e3 + L5*e5 - L6*e6 = 0`
 
-`a*u(phi) + g*u(theta_g) - h*u(theta_h) - e*u(theta_e) - c*u(theta_c) = 0`
+### Parallelogram-like loop: L6-L8-L9-L10
 
-### Foot locator: h-i-j
+Path: `P3 -> P5 -> P6 -> P4 -> P3`
 
-Path: `F -> G -> E -> F`
+`L8*e8 + L9*e9 - L6*e6 - L10*e10 = 0`
 
-`i*u(theta_i) + j*u(theta_j) - h*u(theta_h) = 0`
+The paper calls this a parallelogram mechanism. The optimized lengths are close but not exactly equal in opposite pairs, so the code treats it as a general four-bar closure.
 
-### Rear triangle: k-l-j (with shared foot G)
+### Foot triangle: L9-L11-L12
 
-Path: `C -> H -> G -> E -> C`
+Path: `P5 -> PE -> P6 -> P5`
 
-`k*u(theta_k) + l*u(theta_l) - j*u(theta_j) - g*u(theta_g) = 0`
+`L11*e11 + L12*e12 - L9*e9 = 0`
 
-Together the system is:
+Together:
 
-`F(q, phi, L) = 0`,
+`F(q, theta1, L) = 0`,
 
 implemented in the function `loop_equations`.
 
@@ -117,42 +119,42 @@ implemented in the function `loop_equations`.
 
 ## 4. Forward Kinematics
 
-Once angles are solved, joint positions are recovered as:
+Once the angles are solved, joint positions are computed as:
 
 ```python
-A = np.array([0.0, 0.0])
-B = np.array([d,   0.0])
-C = A + a * u(phi)
-D = C + b * u(theta_b)
-E = D + e * u(theta_e)
-F = C + g * u(theta_g)
-G = F + i * u(theta_i)    # foot point
-H = C + k * u(theta_k)
+P0 = np.array([0.0, 0.0])
+P3 = np.array([L4,  0.0])
+P1 = P0 + L1 * e(theta1)
+P2 = P1 + L2 * e(theta2)
+P5 = P1 + L7 * e(theta7)
+P4 = P2 + L5 * e(theta5)
+P6 = P5 + L9 * e(theta9)
+PE = P5 + L11 * e(theta11)   # ankle / end-effector
 ```
 
-The alternative definitions implied by the loop closures,
+The equivalent alternative definitions,
 
 ```python
-D = B + c * u(theta_c)
-E = B + f * u(theta_f)
-E = F + h * u(theta_h)
-G = E - j * u(theta_j)
-G = H + l * u(theta_l)
+P2 = P3 + L3 * e(theta3)
+P5 = P3 + L8 * e(theta8)
+P4 = P3 + L6 * e(theta6)
+P6 = P4 + L10 * e(theta10)
+PE = P6 - L12 * e(theta12)
 ```
 
-are enforced by the nonlinear system and serve as verification residuals.
+are enforced by the vector loops and serve as closure residual checks.
 
 ---
 
 ## 5. Numerical Solving
 
-For each crank angle `phi`:
+For each `theta1`:
 
-1. An analytic two-circle intersection initializes the primary four-bar `a-b-c-d`, yielding a warm start for `theta_b` and `theta_c`.
-2. The full ten-dimensional loop system is solved by a damped Newton iteration with a finite-difference Jacobian.
-3. The previous solution is warm-started into the next step to track the physical assembly mode continuously around the crank cycle.
+1. A geometric circle-intersection assembly is used only as a branch seed for the upper four-bar.
+2. The full nonlinear loop system is solved using `scipy.optimize.fsolve`.
+3. The previous solution is used as the initial guess for the next step, which preserves the physical assembly mode through a full revolution.
 
-The solver is implemented in `solve_linkage` using `scipy.optimize.fsolve` with automatic fallback to the internal Newton solver if convergence stalls. Residual norms below `1e-10 cm` are achieved at all verified crank angles.
+A damped Newton solver with finite-difference Jacobians is included as a fallback. It solves the same equations and achieves residuals near `1e-14 cm` during verification.
 
 ---
 
@@ -160,78 +162,54 @@ The solver is implemented in `solve_linkage` using `scipy.optimize.fsolve` with 
 
 Running the script generates:
 
-- Full linkage sketch overlaid with the foot trajectory.
-- Foot path `x` versus `y` in the world frame.
-- `x(phi)` and `y(phi)` versus normalized gait cycle `phi / (2*pi) * 100 %`.
-- Ground-contact duty cycle (flat segment) highlighted on the trajectory.
-- Foot velocity `|v_G(phi)|` for constant crank speed.
-- Residual norm across the crank cycle (closure quality check).
-- Sensitivity of stride length and step height to each of the twelve link ratios.
-- Static snapshots of the linkage at `phi = 0, pi/2, pi, 3*pi/2`.
-- Animated GIF of one full stride cycle.
+- A composite figure similar to Fig. 4 of the paper: mechanism sketch, endpoint markers, and x/y gait-cycle curves.
+- A 3x3 validation grid with reference-vs-simulation endpoint paths and RMSE labels.
+- End-effector trajectory `x` versus `y`.
+- `x` and `y` versus gait cycle percent.
+- End-effector velocity curves for constant crank speed.
+- Closed-loop residual validation across the full crank revolution.
+- Mechanism snapshots at representative crank angles.
+- Sensitivity of stride length and step height to adjustable links `L1`, `L4`, and `L8`.
+- Least-squares span-to-link mapping demonstration.
+- A live mechanism animation when run in an interactive environment.
 
 ---
 
-## 7. Effect of Individual Links
+## 7. Effect of Adjustable Links
 
-**Link `a` (crank radius):** Scales the entire output trajectory nearly linearly. Doubling `a` approximately doubles both stride length and step height, since it sets the primary excitation amplitude.
+**Link `L1` (crank radius):** Increasing it generally increases excitation of both four-bars, changing both stride length and vertical lift. It is the primary amplitude control for the gait envelope.
 
-**Link `d` (ground base):** Controls the overall proportions of the primary four-bar. Increasing `d` shifts the coupler path and changes the symmetry of the swing versus stance phases without strongly affecting peak foot height.
+**Link `L4` (ground pivot separation):** Changing it shifts the base geometry of both four-bars simultaneously, strongly affecting horizontal span and the timing and shape of the swing arc. It is the dominant parameter for stride length tuning.
 
-**Links `b`, `c` (primary coupler and follower):** Determine the shape and timing of the coupler curve driving the secondary linkage. Small changes here redistribute the dwell period at the bottom of the gait cycle.
+**Link `L8` (lower four-bar follower):** Belongs to both the lower four-bar and the parallelogram-like loop. It strongly relocates joint `P5`, which then moves the entire foot triangle. It is the principal control for step height and end-effector loop shape.
 
-**Links `e`, `f` (triangle coupler):** Set the position and orientation of the intermediate joint `E`, which is the pivot shared by the foot triangle. These strongly affect the vertical excursion of the foot.
-
-**Links `g`, `h` (upper driver bar):** Couple the crank directly to joint `F` and link the upper driver into the foot locator. Changes here rotate and translate the entire lower triangle path.
-
-**Links `i`, `j`, `k`, `l` (foot and rear triangles):** Determine the fine shape of the foot path at both ends of the swing arc. These are the principal links adjusted when optimizing for flat ground contact or obstacle clearance.
-
-This is why the Jansen sacred ratios are a non-trivial optimum: they were found by Jansen through physical experimentation to minimize foot bounce during ground contact.
+This is why the papers focus on `L4` and `L8`, and the later paper additionally makes `L1` adjustable. Together these three links provide a compact, clinically meaningful parameterization of the gait envelope.
 
 ---
 
-## 8. Stride-to-Link Sensitivity Map
+## 8. Least-Squares Span Mapping
 
-The script computes a numerical Jacobian of the output spans with respect to the twelve link ratios:
+The paper describes an empirical map from desired gait spans to adjustable link lengths.
 
 Let:
 
-- `r = [a, b, c, ..., l] in R^12` be the link-ratio vector.
-- `sigma = [stride, height] in R^2` be the output span vector.
-- `J in R^(2x12)` be the sensitivity matrix, `J_ij = d(sigma_i) / d(r_j)`.
-
-`J` is estimated by forward finite differences with step `delta = 0.001 * r_j`.
-
-For small changes around the nominal ratios:
-
-`delta_sigma ~= J * delta_r`.
-
-A bar chart of `|J_ij|` is plotted for each span independently, identifying which link ratios have the largest influence on stride length and step height respectively.
-
----
-
-## 9. Least-Squares Ratio Recovery
-
-Given a desired output span `[stride*, height*]` and a precomputed sample library:
-
-- `R in R^(12 x n)` stores sampled link-ratio vectors.
-- `S in R^(2 x n)` stores the corresponding simulated spans.
-- `Phi in R^(12 x 2)` is the map from spans to ratios.
+- `Lambda in R^(3 x n)` store sampled `[L1; L4; L8]` vectors.
+- `Sigma in R^(2 x n)` store the corresponding simulated `[xspan; yspan]` vectors.
+- `Psi in R^(3 x 2)` be the linear map from spans to link lengths.
 
 The least-squares solution is:
 
-`Phi = R * pinv(S)`.
+`Psi = Lambda * pinv(Sigma)`.
 
-For a target span:
+For a new desired span:
 
-`r* ~= Phi * [stride*; height*]`.
+`[L1; L4; L8] ~= Psi * [xspan; yspan]`.
 
-This gives a direct starting estimate for `r*`. A polishing step using `scipy.optimize.minimize` refines the result to match the target spans to within `0.1 cm`.
+This is implemented in the function `run_least_squares_span_map`. The result gives a direct starting estimate that can be refined by a nonlinear polishing step if sub-centimeter accuracy is required.
 
 ---
 
-## 10. Important Accuracy Note
+## 9. Important Accuracy Note
 
-The Jansen sacred ratios were originally published without a closed-form derivation.
-The included reference foot paths are reconstructed from published illustrations using digitization, and carry an estimated digitization error of approximately `±0.3 cm` in normalized units.
-All kinematic closure residuals in the script are below `1e-10 cm`, so mechanism accuracy is not a limiting factor. Agreement with digitized references is within the digitization tolerance at all verified crank angles.
+The source PDFs do not include the raw human ankle marker data or the authors' original code.
+The blue reference curve included in validation plots is therefore a smooth gait-like envelope reconstructed for visual comparison only. The reproduced research contribution is the closed-chain mechanism kinematics and the output gait envelope. With the supplied example adjustable lengths, the simulated stride and step height spans match the paper-reported values to within `0.02 cm`.
