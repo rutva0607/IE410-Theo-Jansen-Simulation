@@ -1,7 +1,7 @@
 # IE410-Theo-Jansen-Simulation
-# Strandbeest Eight-Bar Leg Mechanism: Kinematic Model
+# Theo Jansen Simulatiom
 
-This note explains the Python file `strandbeest_mechanism.py`.
+This note explains the Python file `theo_jansen.py`.
 It follows the mechanism topology documented in:
 
 - Theo Jansen, *The Great Pretender*, 010 Publishers, 2007.
