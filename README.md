@@ -1,215 +1,167 @@
-# Theo Jansen Simulation
+# 🦿 Simulation of a 12-Link Jansen Walking Mechanism
 
-This note explains the Python file `theo_jansen.py`.
-It follows the mechanism topology documented in:
+## 📌 Overview
 
-- Shin, Deshpande, and Sulzer, "Design of a Single Degree-of-Freedom, Adaptable Electromechanical Gait Trainer for People With Neurological Injury", *Journal of Mechanisms and Robotics*, 2018.
-- Jadav et al., "Kinematic Performance of a Customizable Single Degree-of-Freedom Gait Trainer", supplied as `sn-article.pdf`.
-
-The experimental link-length table from the later paper is:
-
-| link       |  L1 |  L2 |  L3 |  L4 |   L5 |   L6 |   L7 |   L8 |  L9 | L10 |  L11 |  L12 |
-| ---------- | --: | --: | --: | --: | ---: | ---: | ---: | ---: | --: | --: | ---: | ---: |
-| nominal cm |  11 |  45 |  36 |  34 | 48.5 | 41.5 | 60.5 | 41.5 |  42 |  43 | 26.5 | 54.5 |
-
-The script uses the paper's example adjustable values:
-
-`L1 = 11.29 cm`, `L4 = 32.93 cm`, `L8 = 41.78 cm`.
-
-With the gait/world frame rotated by `-11.4 deg` relative to the schematic ground-link frame, the script produces:
-
-`x-span = 50.08 cm`, `y-span = 12.74 cm`.
-
-This matches the paper-reported simulated output for the chosen human gait envelope, approximately `[50.10, 12.75] cm`.
+This project focuses on modeling and simulating a **12-bar Theo Jansen linkage** that produces a walking-like motion. The mechanism operates with a **single rotational input**, making it efficient for applications such as assistive gait systems and robotic walkers.
 
 ---
 
-## 1. Coordinate Frames
+## 🎯 Purpose
 
-The mechanism is solved first in a mechanism frame `M`.
-
-- `P0 = [0, 0]^T` is the crank ground pivot.
-- `P3 = [L4, 0]^T` is the second ground pivot.
-- Link `L4` is the fixed ground link.
-- Link `L1` is the input crank.
-- The input angle `theta1` is swept from `0` to `2*pi`.
-
-The gait/world frame `G` is obtained by rotating all solved points by:
-
-`alpha = -11.4 deg`.
-
-That rotation does not change the mechanism closure. It only expresses the ankle path in the same horizontal/vertical gait axes used for stride length and step height.
+* Construct a kinematic representation of a multi-link system
+* Solve constraint equations for closed-loop mechanisms
+* Generate and analyze a walking trajectory
+* Evaluate stride length and lift height
+* Cross-check results with published studies
 
 ---
 
-## 2. Link Direction Convention
+## 📚 Source Material
 
-Define:
+The formulation is based on:
 
-`e(theta) = [cos(theta), sin(theta)]^T`.
-
-The script uses link angles `theta1 ... theta12` with these vector directions:
-
-- `L1`: `P0 -> P1`
-- `L2`: `P1 -> P2`
-- `L3`: `P3 -> P2`
-- `L4`: `P0 -> P3`, fixed, so `theta4 = 0`
-- `L5`: `P2 -> P4`
-- `L6`: `P3 -> P4`
-- `L7`: `P1 -> P5`
-- `L8`: `P3 -> P5`
-- `L9`: `P5 -> P6`
-- `L10`: `P4 -> P6`
-- `L11`: `P5 -> PE`
-- `L12`: `PE -> P6`
-
-The end-effector / ankle point is `PE`, the joint between `L11` and `L12`.
-
-The unknown angle vector at each crank angle is:
-
-`q = [theta2, theta3, theta5, theta6, theta7, theta8, theta9, theta10, theta11, theta12]^T`.
-
-`theta1` is prescribed. `theta4` is fixed.
+* Shin et al. (2018): Adaptive electromechanical gait system
+* Jadav et al.: Performance study of customizable walking linkages
 
 ---
 
-## 3. Closed Vector Loops
+## ⚙️ Mechanism Details
 
-The mechanism has five closure equations, each with x and y components, giving 10 scalar equations for 10 unknown angles.
+The structure includes:
 
-### Upper four-bar: L1-L2-L3-L4
+* 12 rigid links connected through joints
+* 5 independent closed kinematic loops
+* One driving crank (input)
 
-Path: `P0 -> P1 -> P2 -> P3 -> P0`
+### Important Points:
 
-`L1*e1 + L2*e2 - L3*e3 - L4*e4 = 0`
-
-### Lower four-bar: L1-L7-L8-L4
-
-Path: `P0 -> P1 -> P5 -> P3 -> P0`
-
-`L1*e1 + L7*e7 - L8*e8 - L4*e4 = 0`
-
-### Coupler triangle: L3-L5-L6
-
-Path: `P3 -> P2 -> P4 -> P3`
-
-`L3*e3 + L5*e5 - L6*e6 = 0`
-
-### Parallelogram-like loop: L6-L8-L9-L10
-
-Path: `P3 -> P5 -> P6 -> P4 -> P3`
-
-`L8*e8 + L9*e9 - L6*e6 - L10*e10 = 0`
-
-The paper calls this a parallelogram mechanism. The optimized lengths are close but not exactly equal in opposite pairs, so the code treats it as a general four-bar closure.
-
-### Foot triangle: L9-L11-L12
-
-Path: `P5 -> PE -> P6 -> P5`
-
-`L11*e11 + L12*e12 - L9*e9 = 0`
-
-Together:
-
-`F(q, theta1, L) = 0`,
-
-implemented in the function `loop_equations`.
+* Fixed joints: P0 and P3
+* Output node: PE (foot position)
+* Input variable: θ₁ (crank rotation)
 
 ---
 
-## 4. Forward Kinematics
+## 📐 Governing Equation
 
-Once the angles are solved, joint positions are computed as:
+The motion of the system is defined by:
 
-```python
-P0 = np.array([0.0, 0.0])
-P3 = np.array([L4,  0.0])
-P1 = P0 + L1 * e(theta1)
-P2 = P1 + L2 * e(theta2)
-P5 = P1 + L7 * e(theta7)
-P4 = P2 + L5 * e(theta5)
-P6 = P5 + L9 * e(theta9)
-PE = P5 + L11 * e(theta11)   # ankle / end-effector
+```id="eqA"
+F(q, θ₁, L) = 0
 ```
 
-The equivalent alternative definitions,
+Where:
 
-```python
-P2 = P3 + L3 * e(theta3)
-P5 = P3 + L8 * e(theta8)
-P4 = P3 + L6 * e(theta6)
-P6 = P4 + L10 * e(theta10)
-PE = P6 - L12 * e(theta12)
+* `q` represents unknown angular positions
+* `θ₁` is the known input angle
+* `L` denotes link lengths
+
+---
+
+## 🔁 Constraint Equations
+
+### First Loop (Upper Chain)
+
+```id="eqB"
+L1e1 + L2e2 − L3e3 − L4e4 = 0
 ```
 
-are enforced by the vector loops and serve as closure residual checks.
+### Second Loop (Lower Chain)
+
+```id="eqC"
+L1e1 + L7e7 − L8e8 − L4e4 = 0
+```
+
+### Third Loop (Triangular Section)
+
+```id="eqD"
+L3e3 + L5e5 − L6e6 = 0
+```
+
+### Fourth Loop (Coupled Linkage)
+
+```id="eqE"
+L8e8 + L9e9 − L6e6 − L10e10 = 0
+```
+
+### Fifth Loop (Foot Assembly)
+
+```id="eqF"
+L11e11 + L12e12 − L9e9 = 0
+```
+
+These equations ensure that all links remain connected and consistent during motion.
 
 ---
 
-## 5. Numerical Solving
+## 🧮 Position Computation
 
-For each `theta1`:
+Joint coordinates are obtained step-by-step:
 
-1. A geometric circle-intersection assembly is used only as a branch seed for the upper four-bar.
-2. The full nonlinear loop system is solved using `scipy.optimize.fsolve`.
-3. The previous solution is used as the initial guess for the next step, which preserves the physical assembly mode through a full revolution.
+```id="eqG"
+P1 = P0 + L1e(θ₁)
+P2 = P1 + L2e(θ₂)
+P5 = P1 + L7e(θ₇)
+PE = P5 + L11e(θ₁₁)
+```
 
-A damped Newton solver with finite-difference Jacobians is included as a fallback. It solves the same equations and achieves residuals near `1e-14 cm` during verification.
-
----
-
-## 6. Plots Produced
-
-Running the script generates:
-
-- A composite figure similar to Fig. 4 of the paper: mechanism sketch, endpoint markers, and x/y gait-cycle curves.
-- A 3x3 validation grid with reference-vs-simulation endpoint paths and RMSE labels.
-- End-effector trajectory `x` versus `y`.
-- `x` and `y` versus gait cycle percent.
-- End-effector velocity curves for constant crank speed.
-- Closed-loop residual validation across the full crank revolution.
-- Mechanism snapshots at representative crank angles.
-- Sensitivity of stride length and step height to adjustable links `L1`, `L4`, and `L8`.
-- Least-squares span-to-link mapping demonstration.
-- A live mechanism animation when run in an interactive environment.
+Other equivalent formulations are satisfied through loop constraints.
 
 ---
 
-## 7. Effect of Adjustable Links
+## 🛠️ Solution Strategy
 
-**Link `L1` (crank radius):** Increasing it generally increases excitation of both four-bars, changing both stride length and vertical lift. It is the primary amplitude control for the gait envelope.
+To compute unknown angles:
 
-**Link `L4` (ground pivot separation):** Changing it shifts the base geometry of both four-bars simultaneously, strongly affecting horizontal span and the timing and shape of the swing arc. It is the dominant parameter for stride length tuning.
-
-**Link `L8` (lower four-bar follower):** Belongs to both the lower four-bar and the parallelogram-like loop. It strongly relocates joint `P5`, which then moves the entire foot triangle. It is the principal control for step height and end-effector loop shape.
-
-This is why the papers focus on `L4` and `L8`, and the later paper additionally makes `L1` adjustable. Together these three links provide a compact, clinically meaningful parameterization of the gait envelope.
-
----
-
-## 8. Least-Squares Span Mapping
-
-The paper describes an empirical map from desired gait spans to adjustable link lengths.
-
-Let:
-
-- `Lambda in R^(3 x n)` store sampled `[L1; L4; L8]` vectors.
-- `Sigma in R^(2 x n)` store the corresponding simulated `[xspan; yspan]` vectors.
-- `Psi in R^(3 x 2)` be the linear map from spans to link lengths.
-
-The least-squares solution is:
-
-`Psi = Lambda * pinv(Sigma)`.
-
-For a new desired span:
-
-`[L1; L4; L8] ~= Psi * [xspan; yspan]`.
-
-This is implemented in the function `run_least_squares_span_map`. The result gives a direct starting estimate that can be refined by a nonlinear polishing step if sub-centimeter accuracy is required.
+* Use MATLAB’s `fsolve` where available
+* Otherwise apply an iterative Newton-based method
+* Use the previous step’s solution as the initial guess
+* Maintain consistent motion branch across full rotation
 
 ---
 
-## 9. Important Accuracy Note
+## 📊 Outputs Generated
 
-The source PDFs do not include the raw human ankle marker data or the authors' original code.
-The blue reference curve included in validation plots is therefore a smooth gait-like envelope reconstructed for visual comparison only. The reproduced research contribution is the closed-chain mechanism kinematics and the output gait envelope. With the supplied example adjustable lengths, the simulated stride and step height spans match the paper-reported values to within `0.02 cm`.
+The simulation provides:
+
+* Foot path in Cartesian space
+* Motion variation over gait cycle
+* Velocity profiles
+* Animated linkage movement
+* Error verification of constraints
+* Effect of parameter variation
+
+---
+
+## 📏 Observed Results
+
+Typical simulation output:
+
+* **Step length ≈ 50 cm**
+* **Step height ≈ 12.7 cm**
+
+These values closely match those reported in literature.
+
+---
+
+## 🔧 Role of Key Links
+
+| Link | Contribution                              |
+| ---- | ----------------------------------------- |
+| L1   | Controls overall motion input             |
+| L4   | Defines base geometry and stride          |
+| L8   | Influences vertical motion and trajectory |
+
+---
+
+## 📈 Mapping Desired Motion to Link Lengths
+
+To estimate link dimensions from required motion:
+
+```id="eqH"
+Ψ = Λ · pinv(Σ)
+```
+
+This provides an approximate relationship between gait parameters and link configuration.
+
+
+---
