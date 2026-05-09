@@ -163,6 +163,11 @@ To estimate link dimensions from required motion:
 
 This provides an approximate relationship between gait parameters and link configuration.
 
+---
+## 📁 Drive Folder
+This Drive folder includes all the source code used in the demonstration of our project.
+Link - https://drive.google.com/drive/folders/1SgetUaWjeaJx1NPeDUs9qbj-JOlweufU
+
 
 ---
 ## 👥 Team Members
@@ -171,12 +176,6 @@ This provides an approximate relationship between gait parameters and link confi
 - Om Pandya - 202401136  
 - Harsh Asnani - 202401062  
 - Het Lathiya - 202401104
-
----
-## 📁 Drive Folder
-This Drive folder includes all the source code used in the demonstration of our project.
-Link - https://drive.google.com/drive/folders/1SgetUaWjeaJx1NPeDUs9qbj-JOlweufU
-
 
 ---
 
